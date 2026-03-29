@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Netflix Stock Dashboard · 2018–2022</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:       #080C12;
+    --bg2:      #0E1420;
+    --bg3:      #141B28;
+    --card:     #111827;
+    --border:   #1E2A3A;
+    --red:      #E50914;
+    --red2:     #FF2D38;
+    --green:    #00E676;
+    --amber:    #FFB300;
+    --blue:     #40A9FF;
+    --purple:   #A855F7;
+    --text:     #E8EDF5;
+    --muted:    #5A6880;
+    --subtle:   #2A3A50;
+    --font-h:   'Syne', sans-serif;
+    --font-m:   'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-h);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── BACKGROUND PATTERN ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 0%, rgba(229,9,20,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 90% 100%, rgba(64,169,255,0.05) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 32px 24px 60px; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding-bottom: 28px; border-bottom: 1px solid var(--border);
+    margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+  }
+  .header-left {}
+  .nflx-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(229,9,20,0.12); border: 1px solid rgba(229,9,20,0.3);
+    border-radius: 6px; padding: 4px 12px; margin-bottom: 12px;
+  }
+  .nflx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+  .nflx-badge span { font-family: var(--font-m); font-size: 11px; color: var(--red2); letter-spacing: 1.5px; text-transform: uppercase; }
+  .header h1 { font-size: clamp(22px, 4vw, 36px); font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
+  .header h1 span { color: var(--red); }
+  .header-sub { font-family: var(--font-m); font-size: 12px; color: var(--muted); margin-top: 8px; letter-spacing: 0.5px; }
+
+  .header-right { text-align: right; }
+  .header-stat { font-family: var(--font-m); }
+  .header-stat .val { font-size: 28px; font-weight: 600; color: var(--green); }
+  .header-stat .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+  .header-stat .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; font-family: var(--font-m); letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 32px; }
+
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 20px 16px;
+    position: relative; overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); border-color: var(--subtle); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent, var(--red));
+  }
+  .kpi-card .kpi-icon { font-size: 20px; margin-bottom: 10px; opacity: .9; }
+  .kpi-card .kpi-val {
+    font-family: var(--font-m); font-size: 26px; font-weight: 600;
+    color: var(--text); line-height: 1;
+  }
+  .kpi-card .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: .5px; text-transform: uppercase; }
+  .kpi-card .kpi-hint { font-family: var(--font-m); font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .kpi-card .kpi-hint.up { color: var(--green); }
+  .kpi-card .kpi-hint.down { color: var(--red2); }
+
+  /* ── CHART CARDS ── */
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  @media(max-width:900px) { .chart-grid-2,.chart-grid-3 { grid-template-columns:1fr; } }
+  @media(max-width:600px) { .kpi-grid { grid-template-columns:1fr 1fr; } }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px;
+    display: flex; flex-direction: column;
+  }
+  .chart-card.full { /* full-width */ }
+  .chart-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+  .chart-title { font-size: 14px; font-weight: 700; letter-spacing: .2px; }
+  .chart-desc { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-m); }
+  .chart-badge {
+    font-family: var(--font-m); font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    background: rgba(255,255,255,0.05); color: var(--muted); white-space: nowrap;
+  }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--font-m); font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .legend-line { width: 16px; height: 2px; border-radius: 2px; }
+  canvas { max-height: 280px; }
+  .canvas-tall { max-height: 320px; }
+
+  /* ── YEARLY TABLE ── */
+  .year-bars { display: flex; gap: 16px; align-items: flex-end; height: 120px; padding: 0 4px; }
+  .year-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .year-bar-wrap { width: 100%; display: flex; align-items: flex-end; height: 90px; }
+  .year-bar {
+    width: 100%; border-radius: 6px 6px 0 0;
+    transition: height .6s cubic-bezier(.34,1.56,.64,1);
+    position: relative;
+  }
+  .year-bar::after {
+    content: attr(data-val);
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-m); font-size: 10px; color: var(--text); white-space: nowrap;
+  }
+  .year-lbl { font-family: var(--font-m); font-size: 11px; color: var(--muted); }
+
+  /* ── INSIGHTS ── */
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:700px){ .insights-grid { grid-template-columns:1fr; } }
+
+  .insight-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    display: flex; gap: 14px; align-items: flex-start;
+    transition: border-color .2s;
+  }
+  .insight-card:hover { border-color: var(--subtle); }
+  .insight-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .insight-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .insight-body { font-size: 12px; color: var(--muted); line-height: 1.6; font-family: var(--font-m); }
+
+  /* ── REC SECTION ── */
+  .rec-section {
+    background: linear-gradient(135deg, rgba(229,9,20,0.08), rgba(64,169,255,0.05));
+    border: 1px solid rgba(229,9,20,0.2);
+    border-radius: 16px; padding: 28px 28px 24px; margin-top: 20px;
+  }
+  .rec-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .rec-header h3 { font-size: 16px; font-weight: 800; }
+  .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .rec-item { display: flex; gap: 12px; align-items: flex-start; }
+  .rec-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(229,9,20,0.2); border: 1px solid rgba(229,9,20,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-m); font-size: 12px; color: var(--red2); flex-shrink: 0;
+  }
+  .rec-text { font-size: 12px; color: var(--muted); line-height: 1.6; font-family: var(--font-m); }
+  .rec-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 40px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .footer span { font-family: var(--font-m); font-size: 11px; color: var(--muted); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--subtle); }
+
+  /* ── STAGGERED ENTRY ── */
+  .fade-up { animation: fadeUp .5s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+  .delay-1{animation-delay:.05s} .delay-2{animation-delay:.1s} .delay-3{animation-delay:.15s}
+  .delay-4{animation-delay:.2s} .delay-5{animation-delay:.25s} .delay-6{animation-delay:.3s}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ══ HEADER ══ -->
+  <header class="header fade-up">
+    <div class="header-left">
+      <div class="nflx-badge"><div class="nflx-dot"></div><span>Live Analysis</span></div>
+      <h1>Netflix <span>Stock</span> Dashboard</h1>
+      <p class="header-sub">NFLX · NASDAQ · Dataset: 973 trading days · Mar 2018 – Feb 2022</p>
+    </div>
+    <div class="header-right header-stat">
+      <div class="val">+195.6%</div>
+      <div class="lbl">Total Period Return</div>
+      <div class="sub">$285.77 → $691.69 (All-Time High)</div>
+    </div>
+  </header>
+
+  <!-- ══ KPI CARDS ══ -->
+  <div class="section-label fade-up delay-1">Key Performance Indicators</div>
+  <div class="kpi-grid fade-up delay-1">
+    <div class="kpi-card" style="--accent:var(--red)">
+      <div class="kpi-icon">📈</div>
+      <div class="kpi-val">$691.69</div>
+      <div class="kpi-lbl">All-Time High</div>
+      <div class="kpi-hint up">↑ Peak close price</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--blue)">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-val">$423.61</div>
+      <div class="kpi-lbl">Average Close</div>
+      <div class="kpi-hint">5-year mean price</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green)">
+      <div class="kpi-icon">🟢</div>
+      <div class="kpi-val">+17%</div>
+      <div class="kpi-lbl">Best Single Day</div>
+      <div class="kpi-hint up">Highest daily gain</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--red2)">
+      <div class="kpi-icon">🔴</div>
+      <div class="kpi-val">−22%</div>
+      <div class="kpi-lbl">Worst Single Day</div>
+      <div class="kpi-hint down">Largest daily drop</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--amber)">
+      <div class="kpi-icon">⚡</div>
+      <div class="kpi-val">2.32%</div>
+      <div class="kpi-lbl">Avg Volatility</div>
+      <div class="kpi-hint">Daily price variation</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--purple)">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-val">49.8%</div>
+      <div class="kpi-lbl">Bullish Days</div>
+      <div class="kpi-hint">vs 50.1% Bearish days</div>
+    </div>
+  </div>
+
+  <!-- ══ MAIN PRICE CHART (full width) ══ -->
+  <div class="section-label fade-up delay-2">Price Trend & Moving Averages</div>
+  <div class="chart-card fade-up delay-2" style="margin-bottom:20px">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Close Price + 7-Day & 30-Day Moving Averages</div>
+        <div class="chart-desc">Shows the overall price trajectory and smoothed trend lines — helps identify long-term direction</div>
+      </div>
+      <span class="chart-badge">2018 – 2022</span>
+    </div>
+    <canvas id="priceChart" class="canvas-tall"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:rgba(229,9,20,0.5)"></div>Close Price</div>
+      <div class="legend-item"><div class="legend-line" style="background:#40A9FF"></div>MA-7 (Short-term)</div>
+      <div class="legend-item"><div class="legend-line" style="background:#FFB300"></div>MA-30 (Long-term)</div>
+    </div>
+  </div>
+
+  <!-- ══ ROW 2: Returns + Volatility ══ -->
+  <div class="section-label fade-up delay-3">Daily Returns & Volatility</div>
+  <div class="chart-grid-2 fade-up delay-3">
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Daily % Returns</div>
+          <div class="chart-desc">Green = Bullish day · Red = Bearish day · Hover for value</div>
+        </div>
+        <span class="chart-badge">pct_gain_loss</span>
+      </div>
+      <canvas id="returnsChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Volatility Over Time</div>
+          <div class="chart-desc">Higher values = more price uncertainty · COVID spike visible around Mar 2020</div>
+        </div>
+        <span class="chart-badge">rolling std</span>
+      </div>
+      <canvas id="volatilityChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ══ ROW 3: Market Trend + Yearly Performance ══ -->
+  <div class="section-label fade-up delay-4">Market Trend Distribution & Yearly Performance</div>
+  <div class="chart-grid-3 fade-up delay-4">
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Trend Distribution</div>
+          <div class="chart-desc">Bullish vs Bearish days across 4 years</div>
+        </div>
+      </div>
+      <canvas id="trendPie" style="max-height:220px"></canvas>
+      <div class="legend" style="justify-content:center; margin-top:14px">
+        <div class="legend-item"><div class="legend-dot" style="background:#00E676"></div>Bullish 49.8%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#E50914"></div>Bearish 50.1%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#5A6880"></div>Neutral 0.1%</div>
+      </div>
+    </div>
+    <div class="chart-card" style="grid-column: span 2;">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Yearly Average Close Price</div>
+          <div class="chart-desc">2021 was the best-performing year with avg $558 — massive COVID recovery</div>
+        </div>
+        <span class="chart-badge">avg close / yr</span>
+      </div>
+      <canvas id="yearlyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ══ ROW 4: Volume ══ -->
+  <div class="section-label fade-up delay-5">Trading Volume</div>
+  <div class="chart-card fade-up delay-5" style="margin-bottom:20px">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Volume (in Millions)</div>
+        <div class="chart-desc">High volume spikes usually mark major news events or earnings announcements — volume validates price moves</div>
+      </div>
+      <span class="chart-badge">vol_per_million</span>
+    </div>
+    <canvas id="volumeChart"></canvas>
+  </div>
+
+  <!-- ══ INSIGHTS ══ -->
+  <div class="section-label fade-up delay-5">Key Insights</div>
+  <div class="insights-grid fade-up delay-5">
+    <div class="insight-card">
+      <div class="insight-icon">📉</div>
+      <div>
+        <div class="insight-title">COVID-19 Crash & Recovery (Mar 2020)</div>
+        <div class="insight-body">Volatility spiked to 0.08–0.10 during March 2020 — the highest in the dataset. Netflix recovered quickly as streaming demand surged during lockdowns, making it one of the few stocks to benefit from the pandemic.</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">⚡</div>
+      <div>
+        <div class="insight-title">Near-Perfect Bullish/Bearish Balance</div>
+        <div class="insight-body">With 49.8% Bullish vs 50.1% Bearish days, the stock shows no dominant short-term direction. This is typical of a growth stock — despite even daily splits, the long-term price tripled.</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">🚀</div>
+      <div>
+        <div class="insight-title">2021: Peak Performance Year</div>
+        <div class="insight-body">The average close hit $558 in 2021, the highest of all years. The stock reached its all-time high of $691.69. Post-pandemic streaming boom drove subscriber growth to record highs globally.</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">📉</div>
+      <div>
+        <div class="insight-title">Late 2021 – Early 2022 Correction</div>
+        <div class="insight-body">From the Nov 2021 ATH of ~$691, the stock dropped to $387 by early Feb 2022 — a ~44% correction. Subscriber growth concerns and rising interest rates triggered a sharp Bearish reversal.</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">📊</div>
+      <div>
+        <div class="insight-title">MA-7 vs MA-30 Crossovers</div>
+        <div class="insight-body">When the 7-day moving average crosses above the 30-day, it signals a potential uptrend (Golden Cross). Crossovers in early 2019 and mid-2020 correctly predicted multi-month rallies.</div>
+      </div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">📦</div>
+      <div>
+        <div class="insight-title">Volume Declining Over Time</div>
+        <div class="insight-body">Trading volume dropped from ~18–32M shares in 2018 to 2–5M by 2021. This reflects increased institutional holding and reduced retail speculation — hallmark of a maturing, high-price-per-share stock.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RECOMMENDATIONS ══ -->
+  <div class="rec-section fade-up delay-6">
+    <div class="rec-header">
+      <span style="font-size:22px">💡</span>
+      <h3>Beginner-Friendly Recommendations</h3>
+    </div>
+    <div class="rec-grid">
+      <div class="rec-item">
+        <div class="rec-num">1</div>
+        <div class="rec-text"><strong>Use MA crossovers as entry signals</strong>When the 7-day MA rises above the 30-day MA, it's often a good time to consider buying. Wait for both to confirm the trend before acting.</div>
+      </div>
+      <div class="rec-item">
+        <div class="rec-num">2</div>
+        <div class="rec-text"><strong>Avoid high-volatility periods</strong>When volatility exceeds 0.05, the stock is unpredictable. Beginners should wait for it to stabilize (below 0.03) before entering positions.</div>
+      </div>
+      <div class="rec-item">
+        <div class="rec-num">3</div>
+        <div class="rec-text"><strong>Watch trading volume for confirmation</strong>Price moves with high volume are more reliable. A price increase on low volume may not be sustainable — always check volume alongside price.</div>
+      </div>
+      <div class="rec-item">
+        <div class="rec-num">4</div>
+        <div class="rec-text"><strong>Never time the bottom — buy in phases</strong>The −22% worst-day shows sharp drops can happen suddenly. Instead of buying all at once, use Dollar Cost Averaging — buy small amounts at regular intervals.</div>
+      </div>
+      <div class="rec-item">
+        <div class="rec-num">5</div>
+        <div class="rec-text"><strong>Don't panic at Bearish streaks</strong>50.1% of days were Bearish — but the overall price still grew ~3× over 4 years. Short-term drops are normal. Focus on the long-term trend, not daily noise.</div>
+      </div>
+      <div class="rec-item">
+        <div class="rec-num">6</div>
+        <div class="rec-text"><strong>Set stop-loss levels on High-Risk days</strong>When the risk_level column shows "High Risk", tighten stop-losses to protect capital. High-risk periods often precede sharp corrections like the Feb 2022 selloff.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <div class="footer fade-up">
+    <span>📁 Dataset: Netflix_Stock_Price_C.csv · 973 records · 18 features</span>
+    <span>Built with Chart.js · Data Science Dashboard · NFLX Analysis 2018–2022</span>
+  </div>
+
+</div>
+
+<script>
+/* ────────────────────────────────────────────────
+   DATA  (sampled every 3rd row for performance)
+──────────────────────────────────────────────── */
+const raw = {"dates":["2018-03-28","2018-04-03","2018-04-06","2018-04-11","2018-04-16","2018-04-19","2018-04-24","2018-04-27","2018-05-02","2018-05-07","2018-05-10","2018-05-15","2018-05-18","2018-05-23","2018-05-29","2018-06-01","2018-06-06","2018-06-11","2018-06-14","2018-06-19","2018-06-22","2018-06-27","2018-07-02","2018-07-06","2018-07-11","2018-07-16","2018-07-19","2018-07-24","2018-07-27","2018-08-01","2018-08-06","2018-08-09","2018-08-14","2018-08-17","2018-08-22","2018-08-27","2018-08-30","2018-09-05","2018-09-10","2018-09-13","2018-09-18","2018-09-21","2018-09-26","2018-10-01","2018-10-04","2018-10-09","2018-10-12","2018-10-17","2018-10-22","2018-10-25","2018-10-30","2018-11-02","2018-11-07","2018-11-12","2018-11-15","2018-11-20","2018-11-26","2018-11-29","2018-12-04","2018-12-10","2018-12-13","2018-12-18","2018-12-21","2018-12-27","2019-01-02","2019-01-07","2019-01-10","2019-01-15","2019-01-18","2019-01-24","2019-01-29","2019-02-01","2019-02-06","2019-02-11","2019-02-14","2019-02-20","2019-02-25","2019-02-28","2019-03-05","2019-03-08","2019-03-13","2019-03-18","2019-03-21","2019-03-26","2019-03-29","2019-04-03","2019-04-08","2019-04-11","2019-04-16","2019-04-22","2019-04-25","2019-04-30","2019-05-03","2019-05-08","2019-05-13","2019-05-16","2019-05-21","2019-05-24","2019-05-30","2019-06-04","2019-06-07","2019-06-12","2019-06-17","2019-06-20","2019-06-25","2019-06-28","2019-07-03","2019-07-09","2019-07-12","2019-07-17","2019-07-22","2019-07-25","2019-07-30","2019-08-02","2019-08-07","2019-08-12","2019-08-15","2019-08-20","2019-08-23","2019-08-28","2019-09-03","2019-09-06","2019-09-11","2019-09-16","2019-09-19","2019-09-24","2019-09-27","2019-10-02","2019-10-07","2019-10-10","2019-10-15","2019-10-18","2019-10-23","2019-10-28","2019-10-31","2019-11-05","2019-11-08","2019-11-13","2019-11-18","2019-11-21","2019-11-26","2019-12-02","2019-12-05","2019-12-10","2019-12-13","2019-12-18","2019-12-23","2019-12-27","2020-01-02","2020-01-07","2020-01-10","2020-01-15","2020-01-21","2020-01-24","2020-01-29","2020-02-03","2020-02-06","2020-02-11","2020-02-14","2020-02-20","2020-02-25","2020-02-28","2020-03-04","2020-03-09","2020-03-12","2020-03-17","2020-03-20","2020-03-25","2020-03-30","2020-04-02","2020-04-07","2020-04-13","2020-04-16","2020-04-21","2020-04-24","2020-04-29","2020-05-04","2020-05-07","2020-05-12","2020-05-15","2020-05-20","2020-05-26","2020-05-29","2020-06-03","2020-06-08","2020-06-11","2020-06-16","2020-06-19","2020-06-24","2020-06-29","2020-07-02","2020-07-08","2020-07-13","2020-07-16","2020-07-21","2020-07-24","2020-07-29","2020-08-03","2020-08-06","2020-08-11","2020-08-14","2020-08-19","2020-08-24","2020-08-27","2020-09-01","2020-09-04","2020-09-10","2020-09-15","2020-09-18","2020-09-23","2020-09-28","2020-10-01","2020-10-06","2020-10-09","2020-10-14","2020-10-19","2020-10-22","2020-10-27","2020-10-30","2020-11-04","2020-11-09","2020-11-12","2020-11-17","2020-11-20","2020-11-25","2020-12-01","2020-12-04","2020-12-09","2020-12-14","2020-12-17","2020-12-22","2020-12-28","2020-12-31","2021-01-06","2021-01-11","2021-01-14","2021-01-20","2021-01-25","2021-01-28","2021-02-02","2021-02-05","2021-02-10","2021-02-16","2021-02-19","2021-02-24","2021-03-01","2021-03-04","2021-03-09","2021-03-12","2021-03-17","2021-03-22","2021-03-25","2021-03-30","2021-04-05","2021-04-08","2021-04-13","2021-04-16","2021-04-21","2021-04-26","2021-04-29","2021-05-04","2021-05-07","2021-05-12","2021-05-17","2021-05-20","2021-05-25","2021-05-28","2021-06-03","2021-06-08","2021-06-11","2021-06-16","2021-06-21","2021-06-24","2021-06-29","2021-07-02","2021-07-08","2021-07-13","2021-07-16","2021-07-21","2021-07-26","2021-07-29","2021-08-03","2021-08-06","2021-08-11","2021-08-16","2021-08-19","2021-08-24","2021-08-27","2021-09-01","2021-09-07","2021-09-10","2021-09-15","2021-09-20","2021-09-23","2021-09-28","2021-10-01","2021-10-06","2021-10-11","2021-10-14","2021-10-19","2021-10-22","2021-10-27","2021-11-01","2021-11-04","2021-11-09","2021-11-12","2021-11-17","2021-11-22","2021-11-26","2021-12-01","2021-12-06","2021-12-09","2021-12-14","2021-12-17","2021-12-22","2021-12-28","2021-12-31","2022-01-05","2022-01-10","2022-01-13","2022-01-19","2022-01-24","2022-01-27","2022-02-01","2022-02-04"],"close":[285.77,283.67,288.85,303.67,307.78,332.7,307.02,311.76,313.36,326.26,329.6,326.13,324.18,344.72,349.73,359.93,367.45,361.45,392.87,404.98,411.09,390.39,398.18,408.25,418.65,400.48,364.23,357.32,355.21,338.38,350.92,349.36,337.49,316.78,344.44,364.58,370.98,341.18,348.41,368.15,367.65,361.19,377.88,381.43,363.65,355.71,339.56,364.7,329.54,312.87,285.81,309.1,327.5,294.07,290.06,266.98,261.43,288.75,275.33,269.7,276.02,270.94,246.39,255.57,267.66,315.34,324.66,354.64,339.1,326.67,328.9,339.85,352.19,345.73,359.07,359.91,363.91,358.1,354.3,349.6,361.21,363.44,377.87,359.97,356.56,369.75,361.41,367.65,359.46,377.34,368.33,370.54,385.03,364.37,345.26,359.31,354.27,354.39,351.85,353.4,360.87,345.56,350.62,365.21,360.3,367.32,381.72,379.93,373.25,362.44,310.62,326.46,325.93,318.83,304.29,310.83,295.76,298.99,291.44,291.77,289.29,290.17,288.27,294.29,286.6,254.59,263.08,268.03,274.46,280.48,284.25,275.3,271.27,281.86,287.41,288.03,291.57,283.11,302.57,311.69,312.49,309.99,302.86,293.12,298.5,320.8,333.1,329.09,329.81,330.75,329.05,339.07,338.11,353.16,343.16,358.0,366.95,373.69,380.4,386.0,360.09,369.03,383.79,346.49,315.25,319.75,332.83,342.39,370.96,370.08,372.28,396.72,439.17,433.83,424.99,411.89,428.15,436.53,431.82,454.19,447.67,414.77,419.73,421.97,419.49,425.56,436.13,453.72,457.85,447.24,476.89,502.78,525.5,527.39,490.1,480.45,484.48,498.62,509.08,466.93,482.68,484.53,488.81,526.27,556.55,516.05,480.67,495.99,469.96,470.61,490.65,527.51,505.87,539.44,541.45,530.72,485.23,488.93,475.74,496.95,470.5,486.77,480.63,488.24,485.0,504.58,498.31,493.6,522.42,532.9,527.33,519.12,540.73,500.49,499.1,500.86,586.34,556.78,538.6,548.16,550.79,563.59,557.28,540.22,553.41,550.64,511.29,506.44,518.02,524.44,523.11,502.86,513.39,540.67,554.58,553.73,546.54,508.9,510.3,509.0,503.18,503.84,484.98,488.94,501.67,501.34,502.81,489.43,492.39,488.77,492.41,497.0,518.06,533.5,533.98,530.76,540.68,530.31,513.63,516.49,514.25,510.82,520.55,512.4,517.92,543.71,553.41,558.92,582.07,606.71,598.72,582.87,575.43,593.26,583.85,613.15,639.1,627.04,633.8,639.0,664.78,662.92,681.17,668.4,655.99,682.61,691.69,659.2,665.64,617.77,612.69,611.0,597.99,586.73,614.24,610.71,602.44,567.52,539.85,519.2,515.86,387.15,386.7,457.13,410.17],"ma7":[306.92,295.29,288.12,292.44,301.31,319.38,323.51,316.81,311.09,315.56,322.6,327.74,326.9,330.27,340.38,351.44,358.55,362.63,369.64,383.63,403.36,403.22,395.77,396.08,406.94,410.18,392.47,371.48,360.92,349.9,343.5,346.53,346.34,334.24,330.47,341.36,359.22,363.51,355.28,354.11,360.71,363.46,368.3,373.48,376.0,365.06,343.77,340.93,341.82,331.64,306.84,301.66,309.69,311.19,302.02,284.15,270.89,269.63,278.75,279.75,272.75,269.5,264.33,255.4,254.42,275.87,302.38,329.34,341.93,338.88,330.79,335.61,344.04,348.17,351.57,356.46,360.24,361.39,358.93,354.65,356.06,358.52,365.26,366.07,361.37,361.28,365.11,365.83,359.59,359.94,368.05,374.14,375.49,375.28,366.8,356.19,351.71,354.64,353.81,349.11,351.27,353.71,349.07,352.17,362.43,366.47,370.23,376.53,378.87,372.67,345.6,323.58,322.39,326.03,315.61,310.93,306.73,304.16,299.02,294.71,292.72,292.36,290.69,291.15,291.76,280.33,267.0,264.42,269.1,271.74,277.99,284.02,279.31,274.5,280.22,287.09,289.26,289.58,292.58,298.54,308.65,312.97,309.49,303.76,300.24,304.21,320.17,331.13,329.24,328.32,332.32,335.91,337.45,340.6,343.06,348.36,357.09,367.88,374.33,382.21,378.46,373.55,373.38,370.13,357.33,332.95,321.5,337.15,354.84,363.3,370.66,374.66,398.62,424.35,429.51,420.58,417.91,424.38,433.07,439.83,445.36,440.83,425.87,420.43,421.19,424.21,427.61,436.66,454.23,457.49,461.71,479.22,506.95,522.9,512.36,494.39,486.66,488.91,496.94,494.93,484.8,480.74,488.64,503.99,523.31,532.99,519.87,494.03,479.85,481.31,480.81,491.18,505.89,523.28,535.3,539.75,520.66,499.41,488.12,489.06,491.86,493.39,481.55,483.43,482.83,488.48,495.84,503.69,506.73,513.98,527.23,524.45,524.44,522.78,514.75,503.11,512.58,541.25,558.85,542.88,542.94,551.59,556.11,553.54,547.2,544.25,538.49,520.94,510.44,517.25,518.12,517.61,516.75,520.0,537.32,549.8,550.31,543.2,526.3,507.8,508.16,504.89,495.63,491.37,489.94,495.25,501.83,499.73,496.05,490.44,491.21,495.58,504.02,518.6,529.63,533.94,536.62,537.99,534.12,521.56,515.68,516.07,517.23,517.4,516.19,520.21,536.58,550.56,561.07,580.31,595.74,594.13,585.7,584.46,585.91,597.81,611.95,625.99,631.31,631.54,640.31,655.03,673.34,677.55,666.96,658.38,671.64,680.15,669.96,651.53,631.49,616.25,613.08,601.15,599.1,605.36,611.03,598.83,570.38,542.71,527.07,480.64,417.37,395.51,414.37],"ma30":[302.87,304.02,305.15,305.85,307.38,308.78,308.24,307.33,306.99,308.12,310.79,314.85,318.38,322.26,326.31,328.37,333.09,338.16,344.74,352.38,360.93,367.37,374.29,380.59,387.35,392.17,392.97,392.89,391.04,385.15,378.33,374.15,368.8,361.08,352.98,348.07,347.7,347.41,346.16,348.93,350.4,351.89,354.96,360.65,364.24,364.03,359.99,359.05,357.9,353.03,345.96,340.45,335.01,327.65,319.43,311.68,304.88,298.01,292.77,288.43,286.62,282.36,276.36,270.62,267.96,269.97,276.05,282.29,288.69,293.89,300.1,307.42,316.94,326.77,336.08,342.57,346.54,348.56,349.19,352.13,354.58,356.71,358.46,360.1,359.89,360.75,361.11,361.45,361.35,362.37,363.97,365.09,366.12,367.0,367.15,365.67,364.4,363.4,363.29,361.32,359.63,357.35,353.71,352.79,353.84,355.16,357.66,360.0,362.59,364.65,360.56,357.32,356.0,351.85,345.9,340.44,332.95,325.44,317.19,309.94,307.57,305.01,300.89,298.09,296.58,291.77,287.9,284.37,282.01,280.04,279.14,278.47,276.65,275.08,274.52,277.07,279.69,281.83,284.22,287.58,290.44,293.29,296.54,298.96,300.16,302.58,307.0,311.19,314.17,316.6,318.78,321.32,324.76,328.95,333.57,337.25,340.7,344.58,350.09,355.67,359.17,362.61,366.52,368.5,368.33,365.13,360.95,359.23,357.54,355.86,356.04,356.65,361.52,368.38,376.51,385.92,395.35,403.2,410.43,417.92,425.83,430.55,429.67,429.04,428.38,430.28,430.83,432.69,435.5,436.24,438.45,445.43,456.39,466.4,474.14,479.27,485.56,489.63,493.92,496.87,497.6,496.56,493.13,492.76,496.91,501.8,502.44,501.81,498.58,498.72,498.96,501.03,502.72,504.1,504.95,505.24,505.63,506.01,507.41,508.05,509.8,507.69,504.79,499.75,493.39,489.49,489.48,491.36,493.38,497.02,500.08,503.07,508.19,511.17,513.64,514.18,517.08,523.07,526.3,527.71,529.43,533.53,536.04,539.22,543.06,547.5,547.29,541.1,538.5,536.8,533.39,529.66,525.13,523.86,524.29,525.14,527.01,530.23,529.53,527.94,527.47,525.49,523.2,518.78,513.09,507.77,503.55,499.37,497.95,495.97,494.59,494.47,496.9,501.06,505.06,508.6,512.1,516.55,519.72,522.45,524.72,526.3,527.08,525.56,523.86,523.06,524.38,525.56,530.25,538.32,546.65,553.52,559.81,566.77,574.25,582.18,589.64,597.47,603.17,607.15,611.84,620.28,630.09,639.34,645.48,650.96,657.0,661.29,664.27,664.88,661.15,656.54,648.83,640.44,635.76,630.79,623.01,614.21,602.75,591.88,582.58,563.52,540.14,523.0,504.08],"volatility":[0.04,0.05,0.03,0.01,0.02,0.04,0.04,0.02,0.02,0.01,0.01,0.01,0.01,0.02,0.02,0.02,0.01,0.01,0.02,0.02,0.02,0.04,0.03,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.03,0.01,0.01,0.01,0.03,0.03,0.02,0.03,0.03,0.03,0.03,0.03,0.02,0.02,0.02,0.02,0.04,0.05,0.04,0.05,0.04,0.04,0.03,0.03,0.03,0.02,0.02,0.03,0.03,0.04,0.04,0.03,0.03,0.05,0.05,0.04,0.04,0.03,0.04,0.04,0.03,0.02,0.02,0.02,0.02,0.02,0.01,0.01,0.01,0.01,0.02,0.01,0.02,0.03,0.02,0.02,0.01,0.01,0.02,0.03,0.03,0.02,0.01,0.02,0.02,0.02,0.02,0.02,0.01,0.03,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.01,0.01,0.01,0.03,0.05,0.02,0.02,0.01,0.02,0.03,0.03,0.02,0.02,0.01,0.01,0.01,0.01,0.02,0.02,0.03,0.03,0.01,0.02,0.02,0.03,0.03,0.03,0.02,0.02,0.01,0.01,0.02,0.02,0.01,0.01,0.01,0.01,0.02,0.02,0.02,0.02,0.01,0.02,0.02,0.02,0.01,0.03,0.04,0.02,0.02,0.02,0.01,0.01,0.02,0.03,0.03,0.04,0.05,0.08,0.08,0.05,0.04,0.04,0.03,0.04,0.03,0.04,0.03,0.02,0.02,0.02,0.02,0.01,0.02,0.02,0.02,0.02,0.03,0.04,0.03,0.04,0.04,0.03,0.03,0.02,0.02,0.01,0.02,0.02,0.02,0.02,0.05,0.05,0.03,0.03,0.03,0.03,0.03,0.02,0.03,0.03,0.04,0.03,0.02,0.02,0.03,0.03,0.03,0.04,0.04,0.04,0.01,0.01,0.02,0.01,0.02,0.03,0.02,0.02,0.01,0.02,0.03,0.03,0.02,0.07,0.07,0.08,0.03,0.02,0.01,0.01,0.01,0.01,0.02,0.02,0.03,0.03,0.02,0.02,0.03,0.02,0.02,0.01,0.01,0.01,0.03,0.03,0.03,0.01,0.01,0.02,0.02,0.02,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.02,0.02,0.01,0.01,0.01,0.01,0.01,0.02,0.01,0.02,0.01,0.01,0.01,0.02,0.01,0.02,0.02,0.01,0.02,0.02,0.01,0.01,0.02,0.02,0.01,0.02,0.02,0.03,0.02,0.02,0.01,0.02,0.02,0.02,0.02,0.01,0.02,0.01,0.01,0.01,0.01,0.02,0.02,0.08,0.09,0.06,0.07],"pct":[-5,1,-2,2,-1,-1,-4,-1,0,2,0,-1,0,4,0,2,0,0,3,4,-1,-2,2,2,1,1,-3,-1,-2,0,2,1,-1,-2,2,2,1,-6,0,0,5,-1,2,2,-4,2,6,5,-1,4,0,-3,5,-3,1,-1,1,2,-5,2,0,3,-5,1,0,6,1,7,-4,1,-2,0,-1,-1,2,-1,0,-1,1,-1,1,1,1,-2,1,1,-1,1,3,5,-2,0,2,-2,-4,1,2,1,1,5,1,-2,3,0,-3,-1,2,1,-2,-1,-1,3,-2,0,-2,1,-1,-3,-2,0,-2,-1,0,0,-2,-4,0,-1,1,5,0,-6,2,2,-1,-2,1,-3,3,2,-1,-1,0,-3,0,2,-1,-1,2,-2,-2,0,0,1,-2,4,-1,1,0,0,-2,-1,4,-6,-10,7,0,-4,4,2,-2,7,3,-1,0,2,3,1,-2,3,-1,-3,2,-1,0,-2,2,1,-2,1,-2,2,-4,1,-2,1,-1,2,1,-3,0,-1,-1,-4,5,-2,-4,4,0,-4,2,5,-3,1,-2,0,-1,0,-6,2,-9,-1,0,1,0,3,0,-4,4,2,0,1,3,-4,-2,-1,17,-1,3,2,0,1,0,-1,1,2,-2,3,-1,0,2,-3,0,0,1,0,0,-7,1,0,-1,1,-2,-1,3,0,0,-2,0,0,0,-1,1,0,0,-1,1,-2,-3,0,-1,-1,-1,-1,0,4,0,2,2,3,0,1,-2,0,-1,0,1,-1,1,0,2,-1,-1,-3,1,4,1,-3,1,-4,2,-3,-1,-1,2,0,-2,-4,0,-3,1,-3,8,7,1],"volume":[18.97,12.69,11.44,14.88,20.31,8.44,13.89,7.07,5.7,7.12,5.3,4.75,3.58,10.05,9.72,7.11,7.71,4.43,14.6,16.7,10.43,16.54,8.14,8.63,9.71,22.96,16.88,12.85,8.95,7.79,8.2,4.82,5.81,10.41,8.93,17.43,10.98,13.09,5.75,8.37,10.41,11.93,13.8,8.38,9.07,8.76,14.87,32.61,17.1,13.35,23.69,13.4,13.33,10.92,9.97,16.69,12.5,15.43,12.8,9.61,8.38,10.35,21.4,12.24,11.68,18.62,13.47,21.18,26.62,11.13,7.66,9.83,6.72,5.45,9.3,8.11,7.57,6.19,5.94,6.9,6.44,7.19,8.54,7.67,4.71,5.37,4.65,6.53,18.74,11.98,6.26,3.87,5.13,6.57,8.03,6.44,4.03,3.83,4.01,7.89,4.78,4.58,5.36,5.9,5.75,4.59,3.8,6.93,6.64,13.64,17.72,10.8,6.03,6.28,9.32,6.53,9.63,7.35,6.32,3.96,3.68,5.17,7.41,5.31,8.46,16.34,7.33,7.66,6.53,10.81,7.69,23.43,7.13,6.25,5.09,4.06,4.51,9.16,8.62,7.49,5.32,6.22,4.62,10.48,3.88,11.21,5.77,5.04,4.49,4.7,4.72,5.16,14.35,17.94,7.64,6.67,3.92,4.77,3.74,4.08,6.48,11.17,5.49,7.41,12.07,10.01,10.85,8.77,8.62,4.59,7.05,11.69,16.13,23.18,8.66,9.69,7.8,5.64,4.6,7.24,5.61,7.88,5.25,4.32,5.85,7.46,5.51,5.93,4.83,4.84,6.35,5.69,18.4,24.5,9.11,7.75,6.61,5.87,3.73,7.33,2.94,3.16,4.76,9.06,9.57,8.27,6.24,5.34,6.72,3.73,4.77,8.15,4.2,4.78,9.5,7.57,7.0,3.63,7.81,5.14,10.42,5.06,3.7,4.25,3.6,5.05,3.67,4.18,5.77,3.19,1.91,2.89,5.39,5.35,3.81,4.18,32.64,7.21,5.97,3.77,2.38,3.99,2.62,2.84,3.24,3.04,5.03,3.47,3.98,2.82,3.36,4.93,2.42,3.36,4.31,2.72,3.21,22.9,4.39,5.13,4.35,3.13,4.12,2.71,3.72,2.7,2.91,3.89,2.37,3.12,3.53,5.28,3.36,2.31,1.98,3.27,2.75,3.44,11.91,2.25,1.74,2.58,1.92,1.67,2.03,7.5,2.11,3.25,5.63,5.82,3.95,2.76,3.73,2.53,4.43,4.09,4.58,2.86,2.67,7.63,6.19,2.28,3.11,4.86,2.42,4.19,2.73,2.76,2.87,3.88,3.08,2.38,2.98,4.39,2.34,1.88,2.0,4.15,4.49,4.48,4.35,32.35,24.32,22.54,7.78],"trend":["Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bullish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bullish","Bullish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bearish","Bearish","Neutral","Bullish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bearish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bearish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bearish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bearish","Bearish","Bullish","Bullish","Bearish","Bearish","Bullish","Bullish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bearish","Bearish","Bearish","Bearish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bullish","Bullish","Bullish","Bullish","Bullish","Bearish","Bullish","Bearish","Bullish","Bullish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bullish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bearish","Bearish","Bullish","Bearish","Bullish","Bullish","Bullish","Bullish","Bullish"]};
+
+/* ─── CHART.JS DEFAULTS ─── */
+Chart.defaults.color = '#5A6880';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const GRID = { color: 'rgba(30,42,58,0.8)', drawBorder: false };
+const TICK = { color: '#3A4A60', maxTicksLimit: 8 };
+
+/* ─── 1. PRICE + MA CHART ─── */
+(function() {
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+  gradient.addColorStop(0, 'rgba(229,9,20,0.15)');
+  gradient.addColorStop(1, 'rgba(229,9,20,0)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: raw.dates,
+      datasets: [
+        {
+          label: 'Close Price',
+          data: raw.close,
+          borderColor: 'rgba(229,9,20,0.7)',
+          backgroundColor: gradient,
+          borderWidth: 1.5,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0, pointHitRadius: 10,
+          order: 3
+        },
+        {
+          label: 'MA-7',
+          data: raw.ma7,
+          borderColor: '#40A9FF',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          tension: 0.4,
+          pointRadius: 0, pointHitRadius: 10,
+          order: 2
+        },
+        {
+          label: 'MA-30',
+          data: raw.ma30,
+          borderColor: '#FFB300',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 0, pointHitRadius: 10,
+          borderDash: [5, 3],
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 12,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`
+          }
+        }
+      },
+      scales: {
+        x: { grid: GRID, ticks: { ...TICK, maxTicksLimit: 12, maxRotation: 45 } },
+        y: {
+          grid: GRID, ticks: { ...TICK, callback: v => '$' + v },
+          title: { display: true, text: 'Price (USD)', color: '#3A4A60' }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── 2. RETURNS CHART ─── */
+(function() {
+  const ctx = document.getElementById('returnsChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: raw.dates,
+      datasets: [{
+        label: '% Return',
+        data: raw.pct,
+        backgroundColor: raw.pct.map(v => v >= 0 ? 'rgba(0,230,118,0.7)' : 'rgba(229,9,20,0.65)'),
+        borderWidth: 0, borderRadius: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 10,
+          callbacks: { label: ctx => ` Return: ${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y}%` }
+        }
+      },
+      scales: {
+        x: { grid: GRID, ticks: { ...TICK, maxTicksLimit: 8, maxRotation: 45 } },
+        y: {
+          grid: GRID, ticks: { ...TICK, callback: v => v + '%' },
+          title: { display: true, text: 'Daily Return %', color: '#3A4A60' }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── 3. VOLATILITY CHART ─── */
+(function() {
+  const ctx = document.getElementById('volatilityChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 280);
+  grad.addColorStop(0, 'rgba(255,179,0,0.4)');
+  grad.addColorStop(1, 'rgba(255,179,0,0)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: raw.dates,
+      datasets: [{
+        label: 'Volatility',
+        data: raw.volatility,
+        borderColor: '#FFB300',
+        backgroundColor: grad,
+        borderWidth: 2, fill: true, tension: 0.4,
+        pointRadius: 0, pointHitRadius: 10
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 10,
+          callbacks: { label: ctx => ` Volatility: ${(ctx.parsed.y * 100).toFixed(1)}%` }
+        }
+      },
+      scales: {
+        x: { grid: GRID, ticks: { ...TICK, maxTicksLimit: 8, maxRotation: 45 } },
+        y: {
+          grid: GRID, ticks: { ...TICK, callback: v => (v * 100).toFixed(0) + '%' },
+          title: { display: true, text: 'Volatility', color: '#3A4A60' }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── 4. TREND PIE CHART ─── */
+(function() {
+  const ctx = document.getElementById('trendPie').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Bullish', 'Bearish', 'Neutral'],
+      datasets: [{
+        data: [485, 487, 1],
+        backgroundColor: ['rgba(0,230,118,0.85)', 'rgba(229,9,20,0.85)', 'rgba(90,104,128,0.6)'],
+        borderColor: '#080C12',
+        borderWidth: 3, hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 10,
+          callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} days` }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── 5. YEARLY BAR CHART ─── */
+(function() {
+  const ctx = document.getElementById('yearlyChart').getContext('2d');
+  const avgs = [333.95, 328.87, 446.83, 558.22, 477.48];
+  const cols = avgs.map((v, i) => {
+    const shades = ['rgba(64,169,255,0.8)', 'rgba(64,169,255,0.6)', 'rgba(0,230,118,0.7)', 'rgba(229,9,20,0.85)', 'rgba(168,85,247,0.8)'];
+    return shades[i];
+  });
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['2018', '2019', '2020', '2021', '2022 (partial)'],
+      datasets: [{
+        label: 'Avg Close ($)',
+        data: avgs,
+        backgroundColor: cols,
+        borderColor: cols.map(c => c.replace('0.8','1').replace('0.6','1').replace('0.7','1').replace('0.85','1')),
+        borderWidth: 1, borderRadius: 8, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 10,
+          callbacks: { label: ctx => ` Avg Close: $${ctx.parsed.y.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: { grid: GRID, ticks: TICK },
+        y: {
+          grid: GRID, ticks: { ...TICK, callback: v => '$' + v },
+          title: { display: true, text: 'Avg Close Price (USD)', color: '#3A4A60' },
+          min: 250
+        }
+      }
+    }
+  });
+})();
+
+/* ─── 6. VOLUME CHART ─── */
+(function() {
+  const ctx = document.getElementById('volumeChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 250);
+  grad.addColorStop(0, 'rgba(168,85,247,0.6)');
+  grad.addColorStop(1, 'rgba(168,85,247,0.05)');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: raw.dates,
+      datasets: [{
+        label: 'Volume (M)',
+        data: raw.volume,
+        backgroundColor: grad,
+        borderColor: 'rgba(168,85,247,0.4)',
+        borderWidth: 0, borderRadius: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1420', borderColor: '#1E2A3A', borderWidth: 1,
+          titleColor: '#E8EDF5', bodyColor: '#8A9AB0', padding: 10,
+          callbacks: { label: ctx => ` Volume: ${ctx.parsed.y.toFixed(2)}M shares` }
+        }
+      },
+      scales: {
+        x: { grid: GRID, ticks: { ...TICK, maxTicksLimit: 12, maxRotation: 45 } },
+        y: {
+          grid: GRID, ticks: { ...TICK, callback: v => v + 'M' },
+          title: { display: true, text: 'Volume (Millions)', color: '#3A4A60' }
+        }
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>
