@@ -1,7 +1,6 @@
 # 📊 Netflix Stock Price Analysis:-
 
 Dashboard URL on Claude Interface - https://claude.ai/public/artifacts/69cc4bc3-8f40-4fff-a3c9-9f28b1150786
-                                   OR 
 Dashboard URL on Netlify Interface - astonishing-torte-0b3aa4.netlify.app    
 
 ## 📌 Project Overview
